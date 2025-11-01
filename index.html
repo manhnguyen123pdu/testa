@@ -1,0 +1,397 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>App Kiểm Tra - Quiz cho Sinh Viên</title>
+  <style>
+    :root{--bg:#0f1724;--card:#0b1220;--accent:#06b6d4;--muted:#94a3b8;--correct:#16a34a;--wrong:#ef4444}
+    *{box-sizing:border-box;user-select:none;-webkit-user-select:none;-moz-user-select:none}
+    body{font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial;margin:0;background:linear-gradient(180deg,#071025 0%, #07152a 100%);color:#e6eef8}
+    .container{max-width:980px;margin:32px auto;padding:24px}
+    header{display:flex;align-items:center;gap:16px;margin-bottom:18px}
+    .logo{width:56px;height:56px;border-radius:10px;background:linear-gradient(135deg,var(--accent),#7c3aed);display:flex;align-items:center;justify-content:center;font-weight:700}
+    h1{font-size:20px;margin:0}
+    p.lead{margin:4px 0 0;color:var(--muted);font-size:13px}
+    .card{background:rgba(255,255,255,0.03);padding:20px;border-radius:12px;box-shadow:0 6px 18px rgba(2,6,23,0.6)}
+    .controls{display:flex;gap:12px;align-items:center;margin-bottom:12px}
+    select,button{background:transparent;border:1px solid rgba(255,255,255,0.06);color:inherit;padding:8px 12px;border-radius:8px}
+    button.primary{background:var(--accent);border:0;color:#041023;font-weight:600}
+    .quiz-area{display:grid;grid-template-columns:1fr 320px;gap:18px;margin-top:12px}
+    .question-box{padding:16px;border-radius:10px;background:linear-gradient(180deg,rgba(255,255,255,0.02),rgba(255,255,255,0.01))}
+    .q-meta{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+    .q-text{font-size:16px;line-height:1.5}
+    .options{margin-top:12px;display:flex;flex-direction:column;gap:8px}
+    .option{padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);display:flex;gap:10px;align-items:center;cursor:pointer}
+    .option input{accent-color:var(--accent)}
+    .footer-controls{display:flex;justify-content:space-between;align-items:center;margin-top:14px}
+    .progress{height:10px;background:rgba(255,255,255,0.04);border-radius:999px;overflow:hidden}
+    .progress > i{display:block;height:100%;background:linear-gradient(90deg,var(--accent),#7c3aed);width:0%}
+    .side{padding:12px;border-radius:10px;background:rgba(255,255,255,0.02)}
+    .side h3{margin:0 0 8px 0;font-size:14px}
+    .summary{font-size:13px;color:var(--muted);line-height:1.6}
+    .result{display:none;padding:18px;border-radius:10px;background:linear-gradient(180deg,rgba(255,255,255,0.02),rgba(255,255,255,0.01));margin-top:18px}
+    .result.show{display:block}
+    .score{font-size:28px;font-weight:700;margin:0}
+    .review{margin-top:12px}
+    .review .item{padding:10px;border-radius:8px;margin-bottom:8px;background:rgba(255,255,255,0.02)}
+    .correct{color:var(--correct);font-weight:700}
+    .wrong{color:var(--wrong);font-weight:700}
+    footer.small{margin-top:18px;color:var(--muted);font-size:13px}
+    .timer{font-weight:700;font-size:16px;color:var(--accent);margin-left:auto;margin-right:12px}
+    .timer.warning{color:#fbbf24}
+    .timer.danger{color:#ef4444}
+    @media(max-width:900px){.quiz-area{grid-template-columns:1fr;}.side{order:2}}
+  </style>
+</head>
+<body oncontextmenu="return false" onselectstart="return false" oncopy="return false" oncut="return false" onpaste="return false">
+  <div class="container">
+    <header>
+      <div class="logo">QZ</div>
+      <div>
+        <h1>App Kiểm Tra - Quiz cho Sinh Viên</h1>
+        <p class="lead">Chỉ hiện Đúng/Sai khi nộp bài. Nhập mật khẩu để xem đáp án.</p>
+      </div>
+    </header>
+
+    <div class="card">
+      <div class="controls">
+        <label>Chọn đề:</label>
+        <select id="quizSelect"></select>
+        <label>Chọn số câu:</label>
+        <select id="limitSelect">
+          <option value="0">Tất cả</option><option value="10">10</option><option value="20">20</option><option value="30">30</option>
+        </select>
+        <button id="startBtn" class="primary">Bắt đầu</button>
+        <button id="resetBtn">Đặt lại</button>
+        <div class="timer" id="timer">20:00</div>
+        <div style="color:var(--muted)">SV: <strong id="studentName">-</strong></div>
+      </div>
+
+      <div class="quiz-area">
+        <main>
+          <div class="question-box">
+            <div class="q-meta">
+              <div>Câu <span id="qIndex">0</span>/<span id="qTotal">0</span></div>
+              <div class="progress" style="width:200px"><i id="progBar"></i></div>
+            </div>
+            <div class="q-text" id="qText">Nhấn Bắt đầu để load đề.</div>
+            <div class="options" id="options"></div>
+            <div class="footer-controls">
+              <div>
+                <button id="prevBtn">Trước</button>
+                <button id="nextBtn" class="primary">Tiếp</button>
+              </div>
+              <button id="submitBtn" style="background:#0ea5a4">Nộp bài</button>
+            </div>
+          </div>
+
+          <div id="result" class="result">
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <div>
+                <p class="score" id="scoreText">0/0</p>
+                <p class="summary" id="scorePercent">0% đúng</p>
+              </div>
+              <div>
+                <button id="reviewBtn">Xem đáp án</button>
+                <button id="retryBtn">Làm lại</button>
+              </div>
+            </div>
+            <div class="review" id="reviewList"></div>
+          </div>
+        </main>
+
+        <aside class="side">
+          <h3>Hướng dẫn</h3>
+          <div class="summary">
+            - Chọn đáp án, sau đó Nộp bài để xem Đúng/Sai.<br>
+            - Muốn xem đáp án chính xác cần nhập mật khẩu.<br>
+            - Không thể sao chép nội dung trong đề.<br>
+            - Thời gian làm bài: 20 phút.
+          </div>
+        </aside>
+      </div>
+    </div>
+
+    <footer class="small">© App Quiz by You — HTML/CSS/JS thuần</footer>
+  </div>
+
+  <script>
+    const PASSWORD = "test123";
+
+    const quizzes = [
+      {
+        title: 'Bộ React 50 câu (mẫu)',
+        questions: [
+{q:'Trong React, JSX thực chất được biên dịch thành:', opts:['HTML','JavaScript function call (React.createElement)','JSON','XML']},
+{q:'Biểu thức nào là hợp lệ trong JSX?', opts:['{ if (x) return y; }','{ condition ? <A/> : <B/> }','{{}}','{return x;}']},
+{q:'React cho phép có bao nhiêu root element trong 1 component JSX?', opts:['Tùy ý','Chỉ 1','2','Không giới hạn nếu dùng div']},
+{q:'Khi cần hiển thị danh sách mà mỗi phần tử có thể chứa nhiều thẻ con, nên bọc trong:', opts:['<div>','<Fragment>','<span>','<section>']},
+{q:'JSX không cho phép bạn chèn trực tiếp:', opts:['Chuỗi','Số','Object','Biến']},
+
+{q:'React sử dụng cơ chế nào để cập nhật UI hiệu quả hơn so với DOM truyền thống?', opts:['Shadow DOM','Virtual DOM','Real DOM','Shadow Tree']},
+{q:'Virtual DOM giúp React tối ưu bằng cách:', opts:['Cập nhật trực tiếp vào DOM thật','Tạo bản sao của DOM và chỉ cập nhật phần thay đổi','Xóa toàn bộ DOM rồi vẽ lại','Không liên quan đến DOM']},
+{q:'Khi setState được gọi nhiều lần liên tiếp trong một sự kiện, React sẽ:', opts:['Gộp (batching) các cập nhật lại','Thực thi từng lệnh ngay lập tức','Làm treo ứng dụng','Không cập nhật state']},
+{q:'Khi React so sánh Virtual DOM, nó dùng thuật toán nào?', opts:['Diffing Algorithm','Binary Search','Merge Sort','Hash Mapping']},
+
+{q:'Props trong React có thể thay đổi được không?', opts:['Có','Không','Tùy trường hợp','Chỉ trong class component']},
+{q:'Trong React, “key” được dùng để:', opts:['Gán id cho phần tử','Cải thiện hiệu năng render danh sách','Giúp style phần tử','Dùng cho bảo mật']},
+{q:'Khi không đặt key trong danh sách, React sẽ:', opts:['Báo lỗi','Cảnh báo hiệu năng','Dừng chương trình','Render sai kết quả']},
+{q:'Một functional component có thể có state không?', opts:['Không thể','Có, nếu dùng Hooks','Chỉ trong class component','Tùy phiên bản React']},
+{q:'Khi component cha re-render, component con sẽ:', opts:['Luôn re-render','Chỉ re-render nếu props thay đổi','Không bao giờ re-render','Chỉ re-render nếu có state']},
+{q:'key nên đặt ở đâu trong danh sách lặp?', opts:['Trên phần tử con trong map','Trên thẻ cha','Ở cuối file','Trong state']},
+{q:'Để truyền dữ liệu từ component con lên cha, bạn dùng:', opts:['Context','Callback props','Redux','useRef']},
+
+{q:'Khi bạn cần thực hiện hành động sau khi state thay đổi, bạn nên đặt vào đâu?', opts:['Ngay sau setState()','useEffect() có dependency là state đó','Trong return','Trong constructor']},
+{q:'Khi gọi setState với cùng giá trị như hiện tại, React sẽ:', opts:['Vẫn re-render','Bỏ qua render mới','Báo lỗi','Reset state']},
+{q:'Khi bạn muốn setState dựa trên giá trị trước đó, nên dùng cú pháp nào?', opts:['setState(value)','setState(prev => prev + 1)','setState(this.state + 1)','this.state++']},
+
+{q:'useEffect chạy khi nào?', opts:['Mỗi khi render','Khi dependencies thay đổi','Khi component mount','Khi setState được gọi']},
+{q:'Nếu useEffect có dependency rỗng [], nó chạy khi nào?', opts:['Mỗi render','Chỉ khi mount','Không bao giờ chạy','Khi unmount']},
+{q:'Hook nào giúp ghi nhớ giá trị tính toán phức tạp để tránh tính lại?', opts:['useMemo','useCallback','useRef','useEffect']},
+{q:'useRef thường dùng để:', opts:['Quản lý state','Truy cập trực tiếp DOM element','Gọi API','Render lại component']},
+{q:'Nếu bạn dùng useState trong vòng lặp hoặc điều kiện, React sẽ:', opts:['Cho phép','Báo lỗi Hook rules','Chạy sai thứ tự Hook','Không cập nhật']},
+
+{q:'Hook nào cho phép bạn tự tạo logic tái sử dụng?', opts:['useEffect','Custom Hook','useMemo','useReducer']},
+{q:'Hook nào chạy trước tiên khi render?', opts:['useEffect','useMemo','useState','useRef']},
+{q:'Khi cần cập nhật nhiều state phụ thuộc nhau, ta nên dùng:', opts:['useReducer','useState nhiều lần','useRef','useMemo']},
+
+{q:'Hàm reducer trong Redux nhận vào:', opts:['state và action','props và context','action và component','state và component']},
+{q:'dispatch(action) dùng để:', opts:['Cập nhật UI','Gửi action đến reducer','Gọi API','Tạo component']},
+{q:'Redux hoạt động theo nguyên tắc:', opts:['Two-way data binding','One-way data flow','Multi-directional flow','Event bubbling']},
+{q:'Redux Toolkit cung cấp hàm createSlice() để làm gì?', opts:['Tạo store','Tạo reducer + action','Gọi API','Kết nối context']},
+{q:'Trong Redux Toolkit, createAsyncThunk() dùng để:', opts:['Tạo state','Xử lý async logic (API call)','Thay thế useEffect','Tránh race condition']},
+{q:'Hàm configureStore() trong Redux Toolkit giúp:', opts:['Tạo store + combine reducers','Gọi API','Sinh action','Dùng hook']},
+{q:'Khi dùng Redux Toolkit, reducer trả về undefined sẽ:', opts:['Giữ nguyên state','Xóa state','Báo lỗi','Tạo state mới']},
+{q:'Để truy cập dữ liệu từ store trong component, bạn dùng:', opts:['useContext','useSelector','useReducer','connectStore']},
+{q:'Redux middleware thường dùng để:', opts:['Gọi API, logging, async flow','Render component','Lưu localStorage','Style CSS']},
+
+{q:'Thành phần <Outlet /> dùng để:', opts:['Hiển thị component con trong route lồng','Tạo route mới','Chuyển hướng trang','Thay đổi context']},
+{q:'Hook useParams() trả về gì?', opts:['Object chứa giá trị param từ URL','Array routes','State','Function navigate']},
+{q:'Để đọc query string (?q=abc), dùng hook nào?', opts:['useParams','useSearchParams','useNavigate','useQuery']},
+{q:'React Fragment (<> </>) dùng để:', opts:['Gom nhóm phần tử mà không sinh thêm thẻ DOM','Thêm key','Gọi API','Render conditional']},
+{q:'ErrorBoundary dùng để:', opts:['Bắt lỗi runtime trong component con','Bắt lỗi JS toàn trang','Bảo mật API','Reset state']},
+
+{q:'React.StrictMode dùng để:', opts:['Phát hiện các hành vi không an toàn trong development','Giúp tăng hiệu năng','Bảo vệ dữ liệu','Không có tác dụng']},
+{q:'Hàm ReactDOM.createRoot() được giới thiệu từ phiên bản nào?', opts:['React 15','React 16','React 18','React 17']},
+
+{q:'Khi dùng onChange trong input, giá trị được lấy từ:', opts:['event.value','event.target.value','e.currentValue','e.data']},
+{q:'Thư viện Formik hỗ trợ:', opts:['Xử lý form, validate, submit','Chỉ styling','Gọi API','Routing']},
+{q:'React Query (Tanstack Query) dùng để:', opts:['Quản lý và cache dữ liệu API','Render component','Validate form','Chuyển hướng']},
+
+{q:'Khi cần định nghĩa component có props kiểu tùy chọn, bạn dùng:', opts:['? sau tên property','defaultProps','undefined','any']},
+
+{q:'Khi sử dụng display: flex, thuộc tính nào kiểm soát cách căn chỉnh theo trục phụ (cross axis)?', opts:['justify-content','align-items','flex-direction','align-content']},
+{q:'Khi đặt position: absolute cho phần tử con, nó sẽ định vị theo:', opts:['Cửa sổ trình duyệt','Phần tử cha gần nhất có position: relative | absolute | fixed','Thẻ <body>','Phần tử đầu tiên có display: block']},
+{q:'z-index chỉ có tác dụng khi phần tử có:', opts:['position: static','position khác static','display: block','overflow: hidden']},
+{q:'Câu nào đúng về transform: translate()? ', opts:['Dịch chuyển làm thay đổi vị trí thật trong DOM','Dịch chuyển chỉ ảnh hưởng hiển thị, không thay đổi flow thật','Ảnh hưởng đến z-index','Không tương thích với Chrome']},
+{q:'backdrop-filter: blur(10px) hoạt động khi:', opts:['Phần tử có nền trong suốt','Có background-color','overflow: hidden','position: relative']},
+{q:'console.log([] + []); console.log([] + {}); console.log({} + []); kết quả là?', opts:['"" , "[object Object]" , "[object Object]"','"" , "[object Object]" , 0','"" , "[object Object]" , "[object Object][object Object]"','"" , "[object Object]" , 0']},
+{q:'let a={x:1}; let b=a; b.x=2; console.log(a.x); in ra?', opts:['1','2','undefined','Error']},
+{q:'Sự khác biệt chính giữa == và === là gì?', opts:['== so sánh cả kiểu dữ liệu','=== so sánh giá trị nhưng không kiểu','=== so sánh cả kiểu và giá trị','Không khác biệt']},
+{q:'console.log([1,2,3]==[1,2,3]) in ra?', opts:['true','false','Error','undefined']}
+]
+      }
+    ];
+
+    let state={
+      quiz:null,
+      questions:[],
+      answers:[],
+      index:0,
+      submitted:false,
+      showAnswers:false,
+      timer:null,
+      timeLeft:20*60 // 20 phút tính bằng giây
+    };
+
+    const quizSelect=document.getElementById('quizSelect');
+    const limitSelect=document.getElementById('limitSelect');
+    const startBtn=document.getElementById('startBtn');
+    const qIndex=document.getElementById('qIndex');
+    const qTotal=document.getElementById('qTotal');
+    const qText=document.getElementById('qText');
+    const optionsBox=document.getElementById('options');
+    const prevBtn=document.getElementById('prevBtn');
+    const nextBtn=document.getElementById('nextBtn');
+    const submitBtn=document.getElementById('submitBtn');
+    const result=document.getElementById('result');
+    const scoreText=document.getElementById('scoreText');
+    const scorePercent=document.getElementById('scorePercent');
+    const reviewList=document.getElementById('reviewList');
+    const reviewBtn=document.getElementById('reviewBtn');
+    const retryBtn=document.getElementById('retryBtn');
+    const progBar=document.getElementById('progBar');
+    const timerDisplay=document.getElementById('timer');
+
+    function init(){
+      quizzes.forEach((q,i)=>{
+        const o=document.createElement('option');
+        o.value=i;o.textContent=q.title;quizSelect.appendChild(o);
+      });
+    }
+
+    function start(){
+      const sel=quizzes[quizSelect.value];
+      let qs=sel.questions.slice();
+      const limit=parseInt(limitSelect.value);
+      if(limit>0) qs=qs.slice(0,limit);
+      state={
+        quiz:sel,
+        questions:qs,
+        answers:Array(qs.length).fill(null),
+        index:0,
+        submitted:false,
+        showAnswers:false,
+        timeLeft:20*60 // Reset thời gian
+      };
+      qTotal.textContent=qs.length;
+      render();
+      result.classList.remove('show');
+      
+      // Bắt đầu bộ đếm thời gian
+      startTimer();
+    }
+
+    function startTimer() {
+      // Dừng bộ đếm cũ nếu có
+      if (state.timer) {
+        clearInterval(state.timer);
+      }
+      
+      // Cập nhật hiển thị thời gian ban đầu
+      updateTimerDisplay();
+      
+      // Bắt đầu bộ đếm mới
+      state.timer = setInterval(() => {
+        state.timeLeft--;
+        updateTimerDisplay();
+        
+        // Kiểm tra nếu hết thời gian
+        if (state.timeLeft <= 0) {
+          clearInterval(state.timer);
+          autoSubmit();
+        }
+      }, 1000);
+    }
+    
+    function updateTimerDisplay() {
+      const minutes = Math.floor(state.timeLeft / 60);
+      const seconds = state.timeLeft % 60;
+      timerDisplay.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+      
+      // Thay đổi màu sắc khi thời gian sắp hết
+      timerDisplay.className = 'timer';
+      if (state.timeLeft <= 300) { // 5 phút
+        timerDisplay.classList.add('warning');
+      }
+      if (state.timeLeft <= 60) { // 1 phút
+        timerDisplay.classList.add('danger');
+      }
+    }
+    
+    function autoSubmit() {
+      if (state.submitted) return; // Đã nộp bài rồi
+      
+      alert("Hết thời gian làm bài! Hệ thống sẽ tự động nộp bài.");
+      state.submitted = true;
+      showResult();
+    }
+
+    function render(){
+      const i=state.index,q=state.questions[i];
+      qIndex.textContent=i+1;
+      qText.textContent=q.q;
+      optionsBox.innerHTML='';
+      q.opts.forEach((opt,idx)=>{
+        const lbl=document.createElement('label');
+        lbl.className='option';
+        const input=document.createElement('input');
+        input.type='radio';input.name='ans';input.value=idx;input.checked=state.answers[i]===idx;
+        input.onchange=()=>state.answers[i]=idx;
+        lbl.appendChild(input);
+        lbl.appendChild(document.createTextNode(opt));
+        optionsBox.appendChild(lbl);
+      });
+      prevBtn.disabled=i===0;
+      nextBtn.disabled=i===state.questions.length-1;
+      updateProg();
+    }
+
+    prevBtn.onclick=()=>{state.index=Math.max(0,state.index-1);render()};
+    nextBtn.onclick=()=>{state.index=Math.min(state.questions.length-1,state.index+1);render()};
+    startBtn.onclick=start;
+
+    submitBtn.onclick=()=>{
+      if(!state.questions.length)return alert("Chưa có đề!");
+      if(!confirm("Nộp bài?"))return;
+      
+      // Dừng bộ đếm thời gian
+      if (state.timer) {
+        clearInterval(state.timer);
+      }
+      
+      state.submitted=true;
+      showResult();
+    }
+
+    function showResult(){
+      const total=state.questions.length;
+      let correct=0;
+      reviewList.innerHTML='';
+      state.questions.forEach((q,idx)=>{
+        const user=state.answers[idx];
+        if(user===q.a)correct++;
+        const div=document.createElement('div');
+        div.className='item';
+        const res=user===q.a?"✅ Đúng":"❌ Sai";
+        div.innerHTML=`<b>Câu ${idx+1}:</b> ${res}`;
+        reviewList.appendChild(div);
+      });
+      scoreText.textContent=`${correct}/${total}`;
+      scorePercent.textContent=`${Math.round(correct/total*100)}% đúng`;
+      result.classList.add('show');
+    }
+
+    reviewBtn.onclick=()=>{
+      const pass=prompt("Nhập mật khẩu để xem đáp án:");
+      if(pass===PASSWORD){
+        state.showAnswers=true;
+        showFullAnswers();
+      }else alert("Sai mật khẩu!");
+    };
+
+    function showFullAnswers(){
+      reviewList.innerHTML='';
+      state.questions.forEach((q,idx)=>{
+        const user=state.answers[idx];
+        const div=document.createElement('div');
+        div.className='item';
+        div.innerHTML=`<b>Câu ${idx+1}:</b> ${q.q}<br>
+        Bạn chọn: <span class="${user===q.a?'correct':'wrong'}">${user==null?'Chưa chọn':q.opts[user]}</span><br>
+        Đáp án đúng: <span class="correct">${q.opts[q.a]}</span>`;
+        reviewList.appendChild(div);
+      });
+    }
+
+    retryBtn.onclick=()=>{
+      // Dừng bộ đếm thời gian hiện tại
+      if (state.timer) {
+        clearInterval(state.timer);
+      }
+      
+      state.answers=Array(state.questions.length).fill(null);
+      state.index=0;
+      state.submitted=false;
+      state.timeLeft=20*60; // Reset thời gian
+      render();
+      result.classList.remove('show');
+      startTimer(); // Bắt đầu lại bộ đếm thời gian
+    };
+    
+    function updateProg(){const pct=((state.index+1)/state.questions.length)*100;progBar.style.width=pct+"%"}
+
+    init();
+  </script>
+</body>
+</html>
